@@ -1,0 +1,25 @@
+services:
+  e-commerce-subscriber-service:
+    build:
+      context: .
+    container_name: e-commerce-subscriber-service
+    env_file: ./.env
+    ports:
+      - ${PORT}:${PORT}
+    depends_on:
+      - rabbitmq
+  rabbitmq:
+    env_file:
+      - ./.env
+    image: rabbitmq:3-alpine
+    container_name: e-commerce-subscriber-rabbitmq
+    hostname: rabbitmq
+    ports:
+      - 5672:5672
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBIT_MQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBIT_MQ_PASS}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+volumes:
+  rabbitmq-data:
