@@ -3,8 +3,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { join } from 'path';
-import { SubscriberModule } from './subscriber/subscriber.module';
-import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
+import { RabbitMqModule } from './rabbitmq/rabbitmq.module';
+import { EmailverificationModule } from './emailVerification/emailVerification.module';
 
 @Module({
   imports: [
@@ -12,8 +12,8 @@ import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
       envFilePath: join(__dirname, '../.env'),
       isGlobal: true,
     }),
-    SubscriberModule,
-    RabbitmqModule,
+    RabbitMqModule,
+    EmailverificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
