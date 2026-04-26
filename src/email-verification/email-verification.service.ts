@@ -7,7 +7,10 @@ import {
 } from '@nestjs/common';
 import { RabbitMqService } from 'src/rabbitmq/rabbitmq.service';
 import { queues } from '../enums/queues.enum';
-import { Channel } from 'amqplib';
+import { events } from '../enums/events.enum';
+import { Channel, ConsumeMessage } from 'amqplib';
+import { Event } from 'src/dtos/event.dto';
+import { SendVerificationEmailEvent } from 'src/dtos/sendVerificationEmailEvent.dto';
 
 @Injectable()
 export class EmailVerificationService implements OnModuleInit, OnModuleDestroy {
@@ -38,14 +41,28 @@ export class EmailVerificationService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private async sendVerificationEmail(
+    eventData: SendVerificationEmailEvent,
+  ): Promise<void> {
+    const email = eventData.data.email;
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+  }
+
   private async consumeEmailVerificationMessages() {
     await this.channel.consume(
       queues.EMAIL_VERIFICATION_QUEUE,
-      (message) => {
-        if (message) {
+      (message: ConsumeMessage) => {
+        if (message && message.content) {
           this.logger.log(
-            `Received new message from ${queues.EMAIL_VERIFICATION_QUEUE}: ${JSON.stringify(message?.content)}`,
+            `Received new message from ${queues.EMAIL_VERIFICATION_QUEUE}: ${JSON.stringify(message.content)}`,
           );
+
+          const eventData: Event = JSON.parse(message.content.toString());
+
+          switch (eventData.name) {
+            case events.SEND_VERIFICATION_EMAIL as string:
+              break;
+          }
         }
       },
       {

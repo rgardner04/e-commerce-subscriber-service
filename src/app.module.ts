@@ -4,7 +4,8 @@ import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { join } from 'path';
 import { RabbitMqModule } from './rabbitmq/rabbitmq.module';
-import { EmailverificationModule } from './emailVerification/emailVerification.module';
+import { EmailverificationModule } from './email-verification/email-verification.module';
+import { SendEmailModule } from './send-email/send-email.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { EmailverificationModule } from './emailVerification/emailVerification.m
     }),
     RabbitMqModule,
     EmailverificationModule,
+    SendEmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { EmailVerificationService } from './emailVerification.service';
+import { EmailVerificationService } from './email-verification.service';
 
 describe('EmailverificationService', () => {
   let service: EmailVerificationService;
