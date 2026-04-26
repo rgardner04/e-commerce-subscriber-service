@@ -1,3 +1,0 @@
-export enum events {
-  SEND_VERIFICATION_EMAIL= "SEND_VERIFICATION_EMAIL",
-}

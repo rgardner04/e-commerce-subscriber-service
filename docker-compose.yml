@@ -3,11 +3,13 @@ services:
     build:
       context: .
     container_name: e-commerce-subscriber-service
-    env_file: ./.env
+    env_file:
+      - ./.env
     ports:
       - ${PORT}:${PORT}
     depends_on:
       - rabbitmq
+      - mongo
   rabbitmq:
     env_file:
       - ./.env
@@ -21,5 +23,17 @@ services:
       - RABBITMQ_DEFAULT_PASS=${RABBIT_MQ_PASS}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+  mongo:
+    env_file:
+      - ./.env
+    image: mongo:latest
+    container_name: e-commerce-subscriber-mongo
+    hostname: mongo
+    ports:
+      - 27017:27017
+    volumes:
+      - subscriber-data:/data
+
 volumes:
   rabbitmq-data:
+  subscriber-data:

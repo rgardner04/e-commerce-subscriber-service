@@ -1,3 +1,3 @@
-export enum queues {
+export enum QueueEnum {
   EMAIL_VERIFICATION_QUEUE = 'EMAIL_VERIFICATION_QUEUE',
 }

@@ -6,17 +6,21 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { RabbitMqService } from 'src/rabbitmq/rabbitmq.service';
-import { queues } from '../enums/queues.enum';
-import { events } from '../enums/events.enum';
+import { QueueEnum } from '../enums/queue.enum';
+import { EventEnum } from '../enums/event.enum';
 import { Channel, ConsumeMessage } from 'amqplib';
-import { Event } from 'src/dtos/event.dto';
-import { SendVerificationEmailEvent } from 'src/dtos/sendVerificationEmailEvent.dto';
+import {
+  EmailEvent,
+  SendVerificationEmailEvent,
+} from 'src/dtos/email-verification-event.dto';
+import { SendEmailService } from 'src/send-email/send-email.service';
 
 @Injectable()
 export class EmailVerificationService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly rabbitmqService: RabbitMqService,
     @Inject(Logger) private readonly logger: Logger,
+    private readonly sendEmailService: SendEmailService,
   ) {}
 
   private channel: Channel;
@@ -25,11 +29,11 @@ export class EmailVerificationService implements OnModuleInit, OnModuleDestroy {
     const { channel } = await this.rabbitmqService.getRabbitMq();
     this.channel = channel;
 
-    this.logger.log('RabbitMQ channel configured in EmailverificationService');
+    this.logger.log('RabbitMQ channel configured in EmailVerificationService');
   }
 
   private async assertEmailVerificationQueue(): Promise<void> {
-    await this.channel.assertQueue(queues.EMAIL_VERIFICATION_QUEUE, {
+    await this.channel.assertQueue(QueueEnum.EMAIL_VERIFICATION_QUEUE, {
       durable: true,
       arguments: {
         'x-queue-type': 'quorum',
@@ -37,38 +41,61 @@ export class EmailVerificationService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.logger.log(
-      `${queues.EMAIL_VERIFICATION_QUEUE} setup in EmailverificationService`,
+      `${QueueEnum.EMAIL_VERIFICATION_QUEUE} setup in EmailVerificationService`,
     );
   }
 
   private async sendVerificationEmail(
     eventData: SendVerificationEmailEvent,
   ): Promise<void> {
-    const email = eventData.data.email;
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    try {
+      const email = eventData.data.email;
+
+      await this.sendEmailService.sendVerificationEmail(email);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send verification email. Error: ${error instanceof Error ? error?.message : ''}`,
+      );
+    }
   }
 
   private async consumeEmailVerificationMessages() {
     await this.channel.consume(
-      queues.EMAIL_VERIFICATION_QUEUE,
-      (message: ConsumeMessage) => {
+      QueueEnum.EMAIL_VERIFICATION_QUEUE,
+      (message: ConsumeMessage | null) => {
         if (message && message.content) {
-          this.logger.log(
-            `Received new message from ${queues.EMAIL_VERIFICATION_QUEUE}: ${JSON.stringify(message.content)}`,
+          this.handleMessage(message).catch((error) =>
+            this.logger.error(
+              `Error while processing ${QueueEnum.EMAIL_VERIFICATION_QUEUE} message. Error: ${error instanceof Error ? error?.message : ''}`,
+            ),
           );
-
-          const eventData: Event = JSON.parse(message.content.toString());
-
-          switch (eventData.name) {
-            case events.SEND_VERIFICATION_EMAIL as string:
-              break;
-          }
         }
       },
       {
         noAck: true,
       },
     );
+  }
+
+  private async handleMessage(message: ConsumeMessage): Promise<void> {
+    try {
+      const content = message.content.toString();
+      this.logger.log(`Received email verification message: ${content}`);
+
+      const eventData = JSON.parse(content) as EmailEvent;
+
+      switch (eventData.type) {
+        case EventEnum.SEND_VERIFICATION_EMAIL:
+          await this.sendEmailService.sendVerificationEmail(
+            eventData.data.email,
+          );
+          break;
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle email verification message. Error: ${error instanceof Error ? error?.message : ''}`,
+      );
+    }
   }
 
   async onModuleInit() {
@@ -78,7 +105,7 @@ export class EmailVerificationService implements OnModuleInit, OnModuleDestroy {
       await this.consumeEmailVerificationMessages();
     } catch (error) {
       this.logger.error(
-        `Failed to configure ${queues.EMAIL_VERIFICATION_QUEUE} subscriber. Error: ${error instanceof Error ? error?.message : ''}`,
+        `Failed to configure ${QueueEnum.EMAIL_VERIFICATION_QUEUE} subscriber. Error: ${error instanceof Error ? error?.message : ''}`,
       );
     }
   }
