@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { Types } from 'mongoose';
+import { VerificationCodeStatusEnum } from 'src/enums/verification-code-status.enum';
 
 export type VerificationCodeDocument = HydratedDocument<VerificationCode>;
 
@@ -18,7 +19,7 @@ export class VerificationCode {
   @Prop({
     required: true,
     enum: {
-      values: ['pending', 'expired', 'validated', 'invalidated'],
+      values: Object.values(VerificationCodeStatusEnum),
       message: '{VALUE} is not a valid verification code status.',
     },
   })

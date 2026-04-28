@@ -1,11 +1,17 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 import { Options } from 'nodemailer/lib/mailer';
 import { VerificationCodeService } from 'src/verification-code/verification-code.service';
 
 @Injectable()
-export class SendEmailService {
+export class SendEmailService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(Logger) private readonly logger: Logger,
     private readonly configService: ConfigService,
@@ -64,6 +70,33 @@ export class SendEmailService {
     } catch (error) {
       this.logger.error(
         `Failed to send verification email. Error: ${error instanceof Error ? error?.message : ''}`,
+      );
+    }
+  }
+
+  onModuleInit() {
+    try {
+      this.createTransporter();
+      this.logger.log(
+        'Initialized nodemailer transporter in SendEmailService.',
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to create nodemailer transporter. Error: ${error instanceof Error ? error?.message : ''}`,
+      );
+    }
+  }
+
+  onModuleDestroy() {
+    if (!this.transporter) {
+      return;
+    }
+    try {
+      this.transporter.close();
+      this.logger.log('Closed nodemailer transporter in SendEmailService');
+    } catch (error) {
+      this.logger.error(
+        `Failed to close nodemailer transporter. Error: ${error instanceof Error ? error?.message : ''}`,
       );
     }
   }
