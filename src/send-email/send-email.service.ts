@@ -3,7 +3,7 @@ import {
   Inject,
   Logger,
   OnModuleInit,
-  OnModuleDestroy
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
@@ -21,22 +21,20 @@ export class SendEmailService implements OnModuleInit, OnModuleDestroy {
   private transporter: nodemailer.Transporter;
 
   private getNodemailerCredentials() {
-    const nodemailerUser =
-      this.configService.get<string>('NODEMAILER_USER') ?? '';
-    const nodemailerPass =
-      this.configService.get<string>('NODEMAILER_PASS') ?? '';
+    const user = this.configService.get<string>('NODEMAILER_USER') ?? '';
+    const pass = this.configService.get<string>('NODEMAILER_PASS') ?? '';
 
-    return { nodemailerUser, nodemailerPass };
+    return { user, pass };
   }
 
   private createTransporter(): void {
-    const { nodemailerUser, nodemailerPass } = this.getNodemailerCredentials();
+    const { user, pass } = this.getNodemailerCredentials();
 
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: nodemailerUser,
-        pass: nodemailerPass,
+        user: user,
+        pass: pass,
       },
     });
 
@@ -44,10 +42,10 @@ export class SendEmailService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getBasicMailOptions(email: string) {
-    const { nodemailerUser } = this.getNodemailerCredentials();
+    const { user } = this.getNodemailerCredentials();
 
     const basicMailOptions: Options = {
-      from: `"e-commerce-app" ${nodemailerUser}`,
+      from: `"e-commerce-app" ${user}`,
       to: email,
     };
 

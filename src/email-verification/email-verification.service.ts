@@ -86,9 +86,7 @@ export class EmailVerificationService implements OnModuleInit, OnModuleDestroy {
 
       switch (eventData.type) {
         case EventEnum.SEND_VERIFICATION_EMAIL:
-          await this.sendEmailService.sendVerificationEmail(
-            eventData.data.email,
-          );
+          await this.sendVerificationEmail(eventData);
           break;
       }
     } catch (error) {
