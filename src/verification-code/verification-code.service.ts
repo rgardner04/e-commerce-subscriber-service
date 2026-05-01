@@ -5,7 +5,7 @@ import {
   VerificationCode,
   VerificationCodeDocument,
 } from 'src/schemas/verification-code.schema';
-import { UserService } from 'src/user/user.service';
+import { User, UserDocument } from 'src/schemas/user.schema';
 import { Types } from 'mongoose';
 import { VerificationCodeStatusEnum } from 'src/enums/verification-code-status.enum';
 import { randomInt } from 'node:crypto';
@@ -17,7 +17,8 @@ export class VerificationCodeService {
     @Inject(Logger) private readonly logger: Logger,
     @InjectModel(VerificationCode.name)
     private readonly verificationCodeModel: Model<VerificationCodeDocument>,
-    private readonly userService: UserService,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -35,11 +36,15 @@ export class VerificationCodeService {
   }
 
   public async createVerificationCodeFromEmail(email: string): Promise<number> {
-    const userId = await this.userService.getUserIdByEmail(email);
+    const user = await this.userModel.findOne({ email }).lean();
+
+    if (!user) {
+      throw new Error(`Couldn't find user with email: ${email}`);
+    }
 
     const pendingVerificationCodes = await this.verificationCodeModel
       .find({
-        userId: new Types.ObjectId(userId),
+        userId: new Types.ObjectId(user._id),
         status: VerificationCodeStatusEnum.PENDING,
       })
       .select({ _id: 1 })
@@ -49,28 +54,36 @@ export class VerificationCodeService {
       const pendingVerificationCodeIds = pendingVerificationCodes.map(
         (p) => p._id,
       );
-      await this.verificationCodeModel.updateMany(
-        { _id: { $in: [pendingVerificationCodeIds] } },
-        {
-          $set: { status: VerificationCodeStatusEnum.INVALIDATED },
-        },
-      );
+      const invalidatedVerificationCodes =
+        await this.verificationCodeModel.updateMany(
+          { _id: { $in: [pendingVerificationCodeIds] } },
+          {
+            $set: { status: VerificationCodeStatusEnum.INVALIDATED },
+          },
+        );
 
-      this.logger.log(
-        `Successfully invalidated previous verification codes for user ID: ${userId.toString()}`,
-      );
+      if (
+        invalidatedVerificationCodes &&
+        invalidatedVerificationCodes.modifiedCount > 0
+      ) {
+        this.logger.log(
+          `Invalidated ${invalidatedVerificationCodes.modifiedCount} previous verification codes for user ID: ${user._id.toString()}`,
+        );
+      }
     }
 
     const verificationCode = this.generateVerificationCode();
 
     await this.verificationCodeModel.create({
-      userId: userId,
+      userId: user._id,
       verificationCode: verificationCode,
       expiresAt: this.getVerificationCodeExpiresAt(),
       status: VerificationCodeStatusEnum.PENDING,
     });
 
-    this.logger.log('Successfully created verification code.');
+    this.logger.log(
+      `Created verification code with status ${VerificationCodeStatusEnum.PENDING} for user ID: ${user._id.toString()}`,
+    );
 
     return verificationCode;
   }

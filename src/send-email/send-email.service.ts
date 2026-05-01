@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 import { Options } from 'nodemailer/lib/mailer';
+import { AuthStage } from 'src/enums/auth-stage.enum';
 import { VerificationCodeService } from 'src/verification-code/verification-code.service';
 
 @Injectable()
@@ -20,82 +21,107 @@ export class SendEmailService implements OnModuleInit, OnModuleDestroy {
 
   private transporter: nodemailer.Transporter;
 
-  private getNodemailerCredentials() {
-    const user = this.configService.get<string>('NODEMAILER_USER') ?? '';
-    const pass = this.configService.get<string>('NODEMAILER_PASS') ?? '';
+  private getNodeMailerCredentials() {
+    const nodeMailerUser =
+      this.configService.get<string>('NODE_MAILER_USER') ?? '';
+    const nodeMailerPassword =
+      this.configService.get<string>('NODE_MAILER_PASSWORD') ?? '';
 
-    return { user, pass };
+    if (!nodeMailerUser) {
+      throw new Error(
+        'NODE_MAILER_USER is not configured in the environment variables.',
+      );
+    }
+    if (!nodeMailerPassword) {
+      throw new Error(
+        'NODE_MAILER_PASSWORD is not configured in the environment variables.',
+      );
+    }
+
+    return { nodeMailerUser, nodeMailerPassword };
   }
 
-  private createTransporter(): void {
-    const { user, pass } = this.getNodemailerCredentials();
+  private initializeNodeMailerTransporter(): void {
+    const { nodeMailerUser, nodeMailerPassword } =
+      this.getNodeMailerCredentials();
 
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: user,
-        pass: pass,
+        user: nodeMailerUser,
+        pass: nodeMailerPassword,
       },
     });
 
-    this.logger.log('Nodemailer transporter initialized');
+    this.logger.log('Initialized nodemailer transporter.');
   }
 
-  private getBasicMailOptions(email: string) {
-    const { user } = this.getNodemailerCredentials();
+  private getBaseMailOptions(email: string) {
+    const { nodeMailerUser } = this.getNodeMailerCredentials();
 
-    const basicMailOptions: Options = {
-      from: `"e-commerce-app" ${user}`,
+    const baseMailOptions: Options = {
+      from: `"e-commerce-app" ${nodeMailerUser}`,
       to: email,
     };
 
-    return basicMailOptions;
+    return baseMailOptions;
   }
 
-  public async sendVerificationEmail(email: string): Promise<void> {
+  public async sendVerificationEmail(
+    email: string,
+    authStage: AuthStage,
+  ): Promise<void> {
     try {
       const verificationCode =
         await this.verificationCodeService.createVerificationCodeFromEmail(
           email,
         );
 
-      const basicMailOptions = this.getBasicMailOptions(email);
+      let emailAuthStage: string;
+      switch (authStage) {
+        case AuthStage.REGISTER:
+          emailAuthStage = 'registration';
+          break;
+        case AuthStage.LOGIN:
+          emailAuthStage = 'login';
+          break;
+        default:
+          emailAuthStage = 'registration';
+          break;
+      }
+
+      const baseMailOptions = this.getBaseMailOptions(email);
       await this.transporter.sendMail({
-        ...basicMailOptions,
-        subject: 'Please verify your email to complete your registration.',
+        ...baseMailOptions,
+        subject: `Please verify your email to complete your ${emailAuthStage} process.`,
         text: `Please enter the following verification code to verify your email: ${verificationCode}`,
       });
     } catch (error) {
       this.logger.error(
-        `Failed to send verification email. Error: ${error instanceof Error ? error?.message : ''}`,
+        `Couldn't send verification email. Error: ${error instanceof Error ? error?.message : ''}`,
       );
     }
   }
 
   onModuleInit() {
     try {
-      this.createTransporter();
-      this.logger.log(
-        'Initialized nodemailer transporter in SendEmailService.',
-      );
+      this.initializeNodeMailerTransporter();
     } catch (error) {
       this.logger.error(
-        `Failed to create nodemailer transporter. Error: ${error instanceof Error ? error?.message : ''}`,
+        `Couldn't initialize nodemailer transporter. Error: ${error instanceof Error ? error?.message : ''}`,
       );
     }
   }
 
   onModuleDestroy() {
-    if (!this.transporter) {
-      return;
-    }
-    try {
-      this.transporter.close();
-      this.logger.log('Closed nodemailer transporter in SendEmailService');
-    } catch (error) {
-      this.logger.error(
-        `Failed to close nodemailer transporter. Error: ${error instanceof Error ? error?.message : ''}`,
-      );
+    if (this.transporter) {
+      try {
+        this.transporter.close();
+      } catch (error) {
+        this.logger.error(
+          `Couldn't clean up nodemailer transporter. Error: ${error instanceof Error ? error?.message : ''}`,
+        );
+      }
     }
   }
 }

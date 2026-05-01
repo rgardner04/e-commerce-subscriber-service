@@ -8,13 +8,11 @@ import {
   VerificationCode,
   VerificationCodeSchema,
 } from '../schemas/verification-code.schema';
-import { UserModule } from 'src/user/user.module';
 import { User, UserSchema } from 'src/schemas/user.schema';
 
 @Module({
   imports: [
     VerificationCodeModule,
-    UserModule,
     MongooseModule.forFeature([
       { name: VerificationCode.name, schema: VerificationCodeSchema },
       { name: User.name, schema: UserSchema },

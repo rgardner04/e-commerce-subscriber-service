@@ -1,14 +1,9 @@
-import {
-  Injectable,
-  Inject,
-  Logger,
-  OnModuleInit,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { RabbitMqService } from 'src/rabbitmq/rabbitmq.service';
 import { QueueEnum } from '../enums/queue.enum';
 import { EventEnum } from '../enums/event.enum';
-import { Channel, ConsumeMessage } from 'amqplib';
+import { AuthStage } from 'src/enums/auth-stage.enum';
+import { ConsumeMessage } from 'amqplib';
 import {
   EmailEvent,
   SendVerificationEmailEvent,
@@ -16,51 +11,42 @@ import {
 import { SendEmailService } from 'src/send-email/send-email.service';
 
 @Injectable()
-export class EmailVerificationService implements OnModuleInit, OnModuleDestroy {
+export class EmailVerificationService implements OnModuleInit {
   constructor(
     private readonly rabbitmqService: RabbitMqService,
     @Inject(Logger) private readonly logger: Logger,
     private readonly sendEmailService: SendEmailService,
   ) {}
 
-  private channel: Channel;
-
-  private async getChannel(): Promise<void> {
-    const { channel } = await this.rabbitmqService.getRabbitMq();
-    this.channel = channel;
-
-    this.logger.log('RabbitMQ channel configured in EmailVerificationService');
-  }
-
-  private async assertEmailVerificationQueue(): Promise<void> {
-    await this.channel.assertQueue(QueueEnum.EMAIL_VERIFICATION_QUEUE, {
+  private async initializeEmailVerificationQueue(): Promise<void> {
+    const channel = await this.rabbitmqService.getRabbitMqChannel();
+    await channel.assertQueue(QueueEnum.EMAIL_VERIFICATION_QUEUE, {
       durable: true,
       arguments: {
         'x-queue-type': 'quorum',
       },
     });
 
-    this.logger.log(
-      `${QueueEnum.EMAIL_VERIFICATION_QUEUE} setup in EmailVerificationService`,
-    );
+    this.logger.log(`Initialized ${QueueEnum.EMAIL_VERIFICATION_QUEUE}.`);
   }
 
   private async sendVerificationEmail(
     eventData: SendVerificationEmailEvent,
   ): Promise<void> {
-    try {
-      const email = eventData.data.email;
+    const { email, authStage } = eventData.data;
 
-      await this.sendEmailService.sendVerificationEmail(email);
-    } catch (error) {
-      this.logger.error(
-        `Failed to send verification email. Error: ${error instanceof Error ? error?.message : ''}`,
+    if (!email || !authStage) {
+      throw new Error(
+        `Couldn't send verification email. Invalid ${EventEnum.SEND_VERIFICATION_EMAIL} data provided: ${JSON.stringify(eventData)}`,
       );
     }
+
+    await this.sendEmailService.sendVerificationEmail(email, authStage);
   }
 
   private async consumeEmailVerificationMessages() {
-    await this.channel.consume(
+    const channel = await this.rabbitmqService.getRabbitMqChannel();
+    await channel.consume(
       QueueEnum.EMAIL_VERIFICATION_QUEUE,
       (message: ConsumeMessage | null) => {
         if (message && message.content) {
@@ -98,17 +84,12 @@ export class EmailVerificationService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     try {
-      await this.getChannel();
-      await this.assertEmailVerificationQueue();
+      await this.initializeEmailVerificationQueue();
       await this.consumeEmailVerificationMessages();
     } catch (error) {
       this.logger.error(
         `Failed to configure ${QueueEnum.EMAIL_VERIFICATION_QUEUE} subscriber. Error: ${error instanceof Error ? error?.message : ''}`,
       );
     }
-  }
-
-  async onModuleDestroy() {
-    await this.channel.close();
   }
 }

@@ -5,8 +5,6 @@ import {
   VerificationCode,
   VerificationCodeSchema,
 } from 'src/schemas/verification-code.schema';
-import { UserModule } from 'src/user/user.module';
-import { UserService } from 'src/user/user.service';
 import { ConfigService } from '@nestjs/config';
 import { User, UserSchema } from 'src/schemas/user.schema';
 
@@ -16,9 +14,8 @@ import { User, UserSchema } from 'src/schemas/user.schema';
       { name: VerificationCode.name, schema: VerificationCodeSchema },
       { name: User.name, schema: UserSchema },
     ]),
-    UserModule,
   ],
-  providers: [VerificationCodeService, UserService, ConfigService, Logger],
+  providers: [VerificationCodeService, ConfigService, Logger],
   exports: [VerificationCodeService],
 })
 export class VerificationCodeModule {}

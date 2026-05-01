@@ -18,28 +18,39 @@ export class RabbitMqService implements OnModuleInit, OnModuleDestroy {
   private connection: ChannelModel | null = null;
   private channel: Channel | null = null;
 
-  public async getRabbitMq(): Promise<{
-    connection: ChannelModel;
-    channel: Channel;
-  }> {
+  private async getRabbitMqConnection(): Promise<ChannelModel> {
+    if (this.connection) return this.connection;
+
     const rabbitMqUrl = this.configService.get<string>('RABBIT_MQ_URL');
 
     if (!rabbitMqUrl) {
       throw new Error(
-        'RABBIT_MQ_URL is not defined in the environment variables.',
+        'RABBIT_MQ_URL is not configured in the environment variables.',
       );
     }
 
-    if (this.connection && this.channel) {
-      return { connection: this.connection, channel: this.channel };
+    this.connection = await connect(encodeURI(rabbitMqUrl));
+    this.logger.log(`Connected to RabbitMQ at ${rabbitMqUrl}`);
+
+    return this.connection;
+  }
+
+  public async getRabbitMqChannel(): Promise<Channel> {
+    if (this.channel) return this.channel;
+
+    if (!this.connection) {
+      await this.getRabbitMqConnection();
     }
 
-    this.connection = await connect(encodeURI(rabbitMqUrl));
-    this.channel = await this.connection.createChannel();
+    this.channel = await this.connection!.createChannel();
+    this.logger.log(`Created RabbitMQ channel.`);
 
-    this.logger.log('Successfully connected to RabbitMQ.');
+    return this.channel;
+  }
 
-    return { connection: this.connection, channel: this.channel };
+  public async initializeRabbitMq(): Promise<void> {
+    await this.getRabbitMqConnection();
+    await this.getRabbitMqChannel();
   }
 
   async onModuleInit() {
@@ -51,7 +62,7 @@ export class RabbitMqService implements OnModuleInit, OnModuleDestroy {
     let attempts = 0;
     while (attempts < maxAttempts) {
       try {
-        await this.getRabbitMq();
+        await this.initializeRabbitMq();
         return;
       } catch (error) {
         this.logger.warn(
@@ -66,8 +77,17 @@ export class RabbitMqService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    if (this.connection) {
-      await this.connection.close();
+    try {
+      if (this.channel) {
+        await this.channel.close();
+      }
+      if (this.connection) {
+        await this.connection.close();
+      }
+    } catch (error) {
+      this.logger.error(
+        `Could not cleanup RabbitMQ instance. Error: ${error instanceof Error ? error?.message : ''}`,
+      );
     }
   }
 }

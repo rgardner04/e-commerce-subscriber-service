@@ -9,14 +9,12 @@ import {
   VerificationCodeSchema,
 } from 'src/schemas/verification-code.schema';
 import { MongooseModule } from '@nestjs/mongoose';
-import { UserModule } from 'src/user/user.module';
 import { VerificationCodeModule } from 'src/verification-code/verification-code.module';
 
 @Module({
   imports: [
     RabbitMqModule,
     SendEmailModule,
-    UserModule,
     VerificationCodeModule,
     MongooseModule.forFeature([
       { name: VerificationCode.name, schema: VerificationCodeSchema },

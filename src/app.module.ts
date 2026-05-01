@@ -6,7 +6,6 @@ import { join } from 'path';
 import { RabbitMqModule } from './rabbitmq/rabbitmq.module';
 import { EmailVerificationModule } from './email-verification/email-verification.module';
 import { SendEmailModule } from './send-email/send-email.module';
-import { UserModule } from './user/user.module';
 import { VerificationCodeModule } from './verification-code/verification-code.module';
 import { MongooseModule } from '@nestjs/mongoose';
 
@@ -26,7 +25,6 @@ import { MongooseModule } from '@nestjs/mongoose';
     RabbitMqModule,
     EmailVerificationModule,
     SendEmailModule,
-    UserModule,
     VerificationCodeModule,
   ],
   controllers: [AppController],
