@@ -42,6 +42,8 @@ export class EmailVerificationService implements OnModuleInit {
     }
 
     await this.sendEmailService.sendVerificationEmail(email, authStage);
+
+    this.logger.log(`Sent verification email to ${email}`);
   }
 
   private async consumeEmailVerificationMessages() {
@@ -74,6 +76,10 @@ export class EmailVerificationService implements OnModuleInit {
         case EventEnum.SEND_VERIFICATION_EMAIL:
           await this.sendVerificationEmail(eventData);
           break;
+        default:
+          this.logger.log(
+            `Event fell through to default case -> not processing. Event: ${eventData?.type as string}`,
+          );
       }
     } catch (error) {
       this.logger.error(
