@@ -20,15 +20,25 @@ export class VerificationCodeService {
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.verificationCodeMinNumber = parseInt(
+      this.configService.get<string>('VERIFICATION_CODE_MIN_NUMBER') ||
+        '10000000',
+    );
+    this.verificationCodeMaxNumber = parseInt(
+      this.configService.get<string>('VERIFICATION_CODE_MAX_NUMBER') ||
+        '99999999',
+    );
+  }
+
+  private verificationCodeMinNumber: number;
+  private verificationCodeMaxNumber: number;
 
   private generateVerificationCode(): number {
-    const verificationCodeMaxNumber: number = parseInt(
-      this.configService.get<string>('VERIFICATION_CODE_MAX_NUMBER') ??
-        '999999',
+    return randomInt(
+      this.verificationCodeMinNumber,
+      this.verificationCodeMaxNumber,
     );
-
-    return randomInt(0, verificationCodeMaxNumber);
   }
 
   private getVerificationCodeExpiresAt(): Date {
